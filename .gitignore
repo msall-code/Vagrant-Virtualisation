@@ -1,0 +1,6 @@
+tp2-app/target/
+.idea/
+.vagrant/
+*.class
+*.iml
+*.log
