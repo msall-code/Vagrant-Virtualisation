@@ -4,7 +4,7 @@ Vagrant.configure("2") do |config|
   config.vm.hostname = "srv-web"
 
   # Redirection du port 80 (VM) vers 86 (Windows)
-  config.vm.network "forwarded_port", guest: 80, host: 86
+  config.vm.network "forwarded_port", guest: 80, host: 8085
 
   # Synchronisation des dossiers
   config.vm.synced_folder ".", "/vagrant"
