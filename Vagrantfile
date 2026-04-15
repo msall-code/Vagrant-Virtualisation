@@ -3,17 +3,17 @@ Vagrant.configure("2") do |config|
   config.vm.box = "ubuntu/jammy64"
   config.vm.hostname = "srv-web"
 
-  # On passe sur le port 8090 pour éviter tout conflit Windows
-  config.vm.network "forwarded_port", guest: 80, host: 8090, auto_correct: true
+  # Utilisation du port 8091 pour éviter le conflit avec Kafka
+  config.vm.network "forwarded_port", guest: 80, host: 8091, auto_correct: true
 
-  # Synchronisation des dossiers (Windows <-> VM)
+  # Synchronisation du dossier courant (Windows) avec le dossier /vagrant (VM)
   config.vm.synced_folder ".", "/vagrant"
 
-  # --- AUTOMATISATION ---
+  # Installation et configuration automatique
   config.vm.provision "shell", inline: <<-SHELL
     sudo apt-get update
     sudo apt-get install -y apache2
-    # On lie le dossier du projet au serveur web
+    # On remplace le dossier par défaut d'Apache par notre dossier partagé
     sudo rm -rf /var/www/html
     sudo ln -s /vagrant /var/www/html
   SHELL
