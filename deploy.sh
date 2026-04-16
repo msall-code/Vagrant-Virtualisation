@@ -1,88 +1,38 @@
-#!/bin/bash
+Vagrant.configure("2") do |config|
+  config.vm.box = "ubuntu/jammy64"
+  config.vm.hostname = "srv-web-tp1"
 
-APP_PATH="/vagrant/webapp"
-WAR_NAME="webapp.war"
-TARGET_WAR="$APP_PATH/target/$WAR_NAME"
-TOMCAT_PATH="/var/lib/tomcat9/webapps"
-SERVICE="tomcat9"
+  # On mappe le port 8080 de Tomcat vers le 8091 de ton Windows
+  config.vm.network "forwarded_port", guest: 8080, host: 8091, auto_correct: true
 
-# Couleurs
-GREEN="\e[32m"
-RED="\e[31m"
-YELLOW="\e[33m"
-BLUE="\e[34m"
-NC="\e[0m"
+  config.vm.synced_folder ".", "/vagrant"
 
-clear
-echo -e "${BLUE}=========================================${NC}"
-echo -e "${BLUE}        MENU DEPLOY TOMCAT              ${NC}"
-echo -e "${BLUE}=========================================${NC}"
-echo "1 - Build Application (Maven)"
-echo "2 - Deploy WAR"
-echo "3 - Restart Tomcat"
-echo "4 - Stop Tomcat"
-echo "5 - Start Tomcat"
-echo "6 - Status Tomcat"
-echo "7 - Clean & Full Deploy"
-echo "0 - Quit"
-echo "========================================="
-read -p "Choisissez une option: " choix
+  config.vm.provider "virtualbox" do |vb|
+    vb.name   = "srv-tp1"
+    vb.memory = 2048
+    vb.cpus = 2
+  end
 
-case $choix in
+  # Installation automatique des prérequis
+  config.vm.provision "shell", inline: <<-SHELL
+    sudo apt-get update
+    sudo apt-get install -y tomcat9 tomcat9-admin
 
-	1)
-		    echo -e "${YELLOW}Building application...${NC}"
-		        cd $APP_PATH
-			    mvn clean package
-			        ;;
+    # 1. Supprimer le dossier ROOT physique pour éviter les conflits
+    sudo rm -rf /var/lib/tomcat9/webapps/ROOT
 
-			2)
-				    echo -e "${YELLOW}Deploying WAR...${NC}"
-				        sudo rm -rf $TOMCAT_PATH/webapp
-					    sudo cp $TARGET_WAR $TOMCAT_PATH
-					        echo -e "${GREEN}WAR deployed successfully.${NC}"
-						    ;;
+    # 2. Créer le fichier de configuration pour rediriger l'accueil vers ton dossier
+    # On crée un fichier ROOT.xml dans le dossier de configuration de Tomcat
+    sudo mkdir -p /etc/tomcat9/Catalina/localhost
+    sudo tee /etc/tomcat9/Catalina/localhost/ROOT.xml <<EOF
+<Context docBase="/vagrant/webapp/src/main/webapp" reloadable="true">
+</Context>
+EOF
 
-					    3)
-						        echo -e "${YELLOW}Restarting Tomcat...${NC}"
-							    sudo systemctl restart $SERVICE
-							        echo -e "${GREEN}Tomcat restarted.${NC}"
-								    ;;
-
-							    4)
-								        echo -e "${RED}Stopping Tomcat...${NC}"
-									    sudo systemctl stop $SERVICE
-									        echo -e "${GREEN}Tomcat stopped.${NC}"
-										    ;;
-
-									    5)
-										        echo -e "${YELLOW}Starting Tomcat...${NC}"
-											    sudo systemctl start $SERVICE
-											        echo -e "${GREEN}Tomcat started.${NC}"
-												    ;;
-
-											    6)
-												        echo -e "${BLUE}Tomcat Status:${NC}"
-													    sudo systemctl status $SERVICE
-													        ;;
-
-													7)
-														    echo -e "${YELLOW}Full Deploy (Build + Deploy + Restart)...${NC}"
-														        cd $APP_PATH
-															    mvn clean package
-															        sudo rm -rf $TOMCAT_PATH/webapp
-																    sudo cp $TARGET_WAR $TOMCAT_PATH
-																        sudo systemctl restart $SERVICE
-																	    echo -e "${GREEN}Application deployed successfully 🚀${NC}"
-																	        ;;
-
-																	0)
-																		    echo "Bye 👋"
-																		        exit
-																			    ;;
-
-																		    *)
-																			        echo -e "${RED}Invalid option.${NC}"
-																				    ;;
-
-																			    esac
+    # 3. Autoriser Tomcat à lire le dossier /vagrant (problème de permissions classique)
+    sudo gpasswd -a tomcat vagrant
+    
+    # 4. Redémarrer pour appliquer
+    sudo systemctl restart tomcat9
+  SHELL
+end
